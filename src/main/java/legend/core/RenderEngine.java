@@ -1037,18 +1037,19 @@ public class RenderEngine {
     } else {
       // Our perspective projection is actually a centred orthographic projection. We are doing a
       // projection plane division in the vertex shader to emulate perspective division on the GTE.
-      if(this.allowWidescreen && CONFIG.getConfig(CoreMod.ALLOW_WIDESCREEN_CONFIG.get())) {
-        final float ratio = this.width / (float)this.height;
+//      if(this.allowWidescreen && CONFIG.getConfig(CoreMod.ALLOW_WIDESCREEN_CONFIG.get())) {
+        final float squozen = 384.0f / 320.0f;
+        final float ratio = this.width / (float)this.height * squozen;
         final float w = this.projectionHeight * ratio;
         final float h = this.projectionHeight;
         this.perspectiveProjection.setOrthoLH(-w / 2.0f, w / 2.0f, h / 2.0f, -h / 2.0f, 0.1f, 1000000.0f);
-        this.orthographicProjection.setOrthoLH(0.0f, w * (this.projectionWidth / 320.0f), h, 0.0f, 0.1f, 1000000.0f);
-        this.widescreenOrthoOffsetX = (w - 320.0f) / 2.0f;
-      } else {
-        this.perspectiveProjection.setOrthoLH(-this.projectionWidth / 2.0f, this.projectionWidth / 2.0f, this.projectionHeight / 2.0f, -this.projectionHeight / 2.0f, 0.1f, 1000000.0f);
-        this.orthographicProjection.setOrthoLH(0.0f, this.projectionWidth, this.projectionHeight, 0.0f, 0.1f, 1000000.0f);
-        this.widescreenOrthoOffsetX = 0.0f;
-      }
+        this.orthographicProjection.setOrthoLH(0.0f, w, h, 0.0f, 0.1f, 1000000.0f);
+        this.widescreenOrthoOffsetX = (w - this.projectionWidth) / 2.0f;
+//      } else {
+//        this.perspectiveProjection.setOrthoLH(-this.projectionWidth / 2.0f, this.projectionWidth / 2.0f, this.projectionHeight / 2.0f, -this.projectionHeight / 2.0f, 0.1f, 1000000.0f);
+//        this.orthographicProjection.setOrthoLH(0.0f, this.projectionWidth, this.projectionHeight, 0.0f, 0.1f, 1000000.0f);
+//        this.widescreenOrthoOffsetX = 0.0f;
+//      }
     }
   }
 

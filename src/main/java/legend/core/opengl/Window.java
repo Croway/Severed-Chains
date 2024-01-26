@@ -31,6 +31,7 @@ import static org.lwjgl.glfw.GLFW.GLFW_CONTEXT_VERSION_MINOR;
 import static org.lwjgl.glfw.GLFW.GLFW_CURSOR;
 import static org.lwjgl.glfw.GLFW.GLFW_CURSOR_DISABLED;
 import static org.lwjgl.glfw.GLFW.GLFW_CURSOR_NORMAL;
+import static org.lwjgl.glfw.GLFW.GLFW_DECORATED;
 import static org.lwjgl.glfw.GLFW.GLFW_DISCONNECTED;
 import static org.lwjgl.glfw.GLFW.GLFW_FALSE;
 import static org.lwjgl.glfw.GLFW.GLFW_OPENGL_CORE_PROFILE;
@@ -78,7 +79,6 @@ import static org.lwjgl.opengl.GL11C.GL_VENDOR;
 import static org.lwjgl.opengl.GL11C.GL_VERSION;
 import static org.lwjgl.opengl.GL11C.glGetString;
 import static org.lwjgl.opengl.GL20C.GL_SHADING_LANGUAGE_VERSION;
-import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
 public class Window {
@@ -129,12 +129,19 @@ public class Window {
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 //    glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
+    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
 
     if("true".equals(System.getenv("opengl_debug"))) {
       glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
     }
 
-    this.window = glfwCreateWindow(width, height, title, NULL, NULL);
+    final GLFWVidMode vidMode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+
+    if(vidMode == null) {
+      throw new RuntimeException("Failed to get video mode");
+    }
+
+    this.window = glfwCreateWindow(vidMode.width(), vidMode.height(), title, NULL, NULL);
 
     if(this.window == NULL) {
       throw new RuntimeException("Failed to create the GLFW window");
@@ -155,24 +162,18 @@ public class Window {
       }
     });
 
-    try(final MemoryStack stack = stackPush()) {
-      final IntBuffer pWidth = stack.mallocInt(1);
-      final IntBuffer pHeight = stack.mallocInt(1);
-
-      glfwGetFramebufferSize(this.window, pWidth, pHeight);
-
-      final GLFWVidMode vidMode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-
-      if(vidMode == null) {
-        throw new RuntimeException("Failed to get video mode");
-      }
-
-      glfwSetWindowPos(
-        this.window,
-        (vidMode.width() - pWidth.get(0)) / 2,
-        (vidMode.height() - pHeight.get(0)) / 2
-      );
-    }
+//    try(final MemoryStack stack = stackPush()) {
+//      final IntBuffer pWidth = stack.mallocInt(1);
+//      final IntBuffer pHeight = stack.mallocInt(1);
+//
+//      glfwGetFramebufferSize(this.window, pWidth, pHeight);
+//      glfwSetWindowPos(
+//        this.window,
+//        (vidMode.width() - pWidth.get(0)) / 2,
+//        (vidMode.height() - pHeight.get(0)) / 2
+//      );
+//    }
+    glfwSetWindowPos(this.window, 0, 0);
 
     this.makeContextCurrent();
 
