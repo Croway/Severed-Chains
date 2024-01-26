@@ -749,7 +749,7 @@ public class RenderEngine {
     this.tmdShader.use();
     GPU.useVramTexture();
 
-    final float widthScale = this.window.getWidth() / this.projectionWidth;
+    final float widthScale = this.window.getWidth() / 384.0f / this.aspectRatio;
     final float heightScale = this.window.getHeight() / this.projectionHeight;
 
     glDisable(GL_DEPTH_TEST);
@@ -764,7 +764,7 @@ public class RenderEngine {
 
       if(entry.scissor.w != 0) {
         glEnable(GL_SCISSOR_TEST);
-        glScissor((int)(entry.scissor.x * widthScale), this.window.getHeight() - (int)(entry.scissor.y * heightScale), (int)(entry.scissor.w * widthScale), (int)(entry.scissor.h * heightScale));
+        glScissor((int)((entry.scissor.x + this.widescreenOrthoOffsetX) * widthScale), this.window.getHeight() - (int)(entry.scissor.y * heightScale), (int)(entry.scissor.w * widthScale), (int)(entry.scissor.h * heightScale));
       }
 
       this.tmdShaderOptions.discardMode(0);
