@@ -38,7 +38,9 @@ import org.joml.Vector3f;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -475,6 +477,14 @@ public class RetailSubmap extends Submap {
       }
     }
 
+    for(int i = 0; i < textures.size(); i++) {
+      if(this.pxls.get(i) == null) {
+        this.pxls.set(i, this.pxls.get(textures.get(i).realFileIndex()));
+      }
+    }
+
+    this.loadTextureOverrides();
+    this.calculateTextureLocations();
     this.loadTextures();
   }
 
@@ -515,23 +525,25 @@ public class RetailSubmap extends Submap {
     this.loadTextures();
   }
 
-  private void loadTextures() {
+  private void loadTextureOverrides() {
     this.sobjTextureOverrides.clear();
     this.sobjTextureOverrides.putAll(EVENTS.postEvent(new SubmapObjectTextureEvent(drgnBinIndex_800bc058, this.cut)).textures);
+  }
 
+  private void calculateTextureLocations() {
     this.uvAdjustments.clear();
 
     final boolean[] usedSlots = new boolean[this.pxls.size() * 2];
+    final Set<Tim> visited = new HashSet<>();
 
     outer:
     for(int pxlIndex = 0; pxlIndex < this.pxls.size(); pxlIndex++) {
       final Tim tim = this.pxls.get(pxlIndex);
 
-      if(tim != null) {
-        final Rect4i imageRect = tim.getImageRect();
-        final Rect4i clutRect = tim.getClutRect();
+      if(!visited.contains(tim)) {
+        visited.add(tim);
 
-        final int neededSlots = imageRect.w / 16;
+        final int neededSlots = tim.getImageRect().w / 16;
 
         // We increment by neededSlots so that wide textures only land on even slots
         for(int slotIndex = 0; slotIndex < 20; slotIndex += neededSlots) {
@@ -551,14 +563,6 @@ public class RetailSubmap extends Submap {
             final int x = 576 + slotIndex % 12 * 16;
             final int y = 256 + slotIndex / 12 * 128;
 
-            imageRect.x = x;
-            imageRect.y = y;
-            clutRect.x = x;
-            clutRect.y = y + imageRect.h;
-
-            GPU.uploadData15(imageRect, tim.getImageData());
-            GPU.uploadData15(clutRect, tim.getClutData());
-
             if(this.sobjTextureOverrides.containsKey(pxlIndex)) {
               this.uvAdjustments.add(UvAdjustmentMetrics14.PNG);
             } else {
@@ -572,6 +576,25 @@ public class RetailSubmap extends Submap {
         throw new RuntimeException("Failed to find available texture slot for sobj texture " + pxlIndex);
       } else {
         this.uvAdjustments.add(UvAdjustmentMetrics14.NONE);
+      }
+    }
+  }
+
+  private void loadTextures() {
+    for(final UvAdjustmentMetrics14 uvAdjustment : this.uvAdjustments) {
+      if(uvAdjustment.index != 0) {
+        final Tim tim = this.pxls.get(uvAdjustment.index - 1);
+
+        final Rect4i imageRect = tim.getImageRect();
+        final Rect4i clutRect = tim.getClutRect();
+
+        imageRect.x = uvAdjustment.tpageX;
+        imageRect.y = uvAdjustment.tpageY;
+        clutRect.x = uvAdjustment.clutX;
+        clutRect.y = uvAdjustment.clutY;
+
+        GPU.uploadData15(imageRect, tim.getImageData());
+        GPU.uploadData15(clutRect, tim.getClutData());
       }
     }
 
@@ -926,16 +949,29 @@ public class RetailSubmap extends Submap {
 
   @Method(0x800e76b0L)
   public void setEnvForegroundPosition(final int x, final int y, final int index) {
+    final EnvironmentForegroundTextureMetrics foreground = this.envForegroundMetrics_800cb590[index];
+
     if(x == 1024 && y == 1024) {
-      this.envForegroundMetrics_800cb590[index].hidden_08 = true;
+      foreground.hidden_08 = true;
       return;
     }
 
     //LAB_800e76e8
     //LAB_800e76ec
-    this.envForegroundMetrics_800cb590[index].x_00 = x;
-    this.envForegroundMetrics_800cb590[index].y_04 = y;
-    this.envForegroundMetrics_800cb590[index].hidden_08 = false;
+    foreground.startX = foreground.destX;
+    foreground.startY = foreground.destY;
+    foreground.destX = x;
+    foreground.destY = y;
+    foreground.ticksTotal = 3 - vsyncMode_8007a3b8;
+    foreground.ticks = 0;
+
+    if(!foreground.positionWasSet) {
+      foreground.startX = x;
+      foreground.startY = y;
+      foreground.positionWasSet = true;
+    }
+
+    foreground.hidden_08 = false;
   }
 
   @Method(0x800e770cL)
@@ -1108,7 +1144,9 @@ public class RetailSubmap extends Submap {
     //LAB_800e7de0
     // Render overlays
     for(int i = 0; i < this.envForegroundTextureCount_800cb580; i++) {
-      if(!this.envForegroundMetrics_800cb590[i].hidden_08 && this.foregroundTextures[i] != null) {
+      final EnvironmentForegroundTextureMetrics foreground = this.envForegroundMetrics_800cb590[i];
+
+      if(!foreground.hidden_08 && this.foregroundTextures[i] != null) {
         final EnvironmentRenderingMetrics24 metrics = this.envRenderMetrics_800cb710[this.envBackgroundTextureCount_800cb57c + i];
 
         if(metrics.obj == null) {
@@ -1126,8 +1164,20 @@ public class RetailSubmap extends Submap {
           continue;
         }
 
+        final float x;
+        final float y;
+
+        if(foreground.ticks < foreground.ticksTotal) {
+          x = Math.lerp(foreground.startX, foreground.destX, (foreground.ticks + 1.0f) / foreground.ticksTotal);
+          y = Math.lerp(foreground.startY, foreground.destY, (foreground.ticks + 1.0f) / foreground.ticksTotal);
+          foreground.ticks++;
+        } else {
+          x = foreground.destX;
+          y = foreground.destY;
+        }
+
         this.backgroundTransforms.identity();
-        this.backgroundTransforms.transfer.set(GPU.getOffsetX() + this.submapOffsetX_800cb560 + this.screenOffset.x + this.envForegroundMetrics_800cb590[i].x_00, GPU.getOffsetY() + this.submapOffsetY_800cb564 + this.screenOffset.y + this.envForegroundMetrics_800cb590[i].y_04, z * 4.0f);
+        this.backgroundTransforms.transfer.set(GPU.getOffsetX() + this.submapOffsetX_800cb560 + this.screenOffset.x + x, GPU.getOffsetY() + this.submapOffsetY_800cb564 + this.screenOffset.y + y, z * 4.0f);
         RENDERER
           .queueOrthoModel(metrics.obj, this.backgroundTransforms)
           .texture(this.foregroundTextures[i]);

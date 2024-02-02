@@ -1,6 +1,8 @@
 package legend.core.opengl;
 
 import legend.core.memory.types.TriConsumer;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.lwjgl.system.MemoryStack;
 
 import javax.annotation.Nullable;
@@ -46,6 +48,8 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.memFree;
 
 public final class Texture {
+  private static final Logger LOGGER = LogManager.getFormatterLogger(Texture.class);
+
   public static Texture create(final Consumer<Builder> callback) {
     final Builder builder = new Builder();
     callback.accept(builder);
@@ -96,6 +100,16 @@ public final class Texture {
     });
   }
 
+  public static void unbind() {
+    for(int i = 0; i < currentTextures.length; i++) {
+      if(currentTextures[i] != 0) {
+        currentTextures[i] = 0;
+        glActiveTexture(GL_TEXTURE0 + i);
+        glBindTexture(GL_TEXTURE_2D, 0);
+      }
+    }
+  }
+
   private static final int[] currentTextures = new int[32];
 
   final int id;
@@ -104,6 +118,8 @@ public final class Texture {
   public final int height;
 
   private final int dataFormat;
+
+  private boolean deleted;
 
   private Texture(@Nullable final TriConsumer<Integer, Integer, Integer> texImage2d, final int w, final int h, final int internalFormat, final int dataFormat, final int dataType, final int minFilter, final int magFilter, final int wrapS, final int wrapT, final boolean generateMipmaps, final List<MipmapBuilder> mipmaps) {
     this.id = glGenTextures();
@@ -167,6 +183,11 @@ public final class Texture {
   }
 
   public void use(final int activeTexture) {
+    if(this.deleted) {
+      LOGGER.warn("Tried to use texture %d after it was deleted", this.id);
+      return;
+    }
+
     if(currentTextures[activeTexture] != this.id) {
       currentTextures[activeTexture] = this.id;
       glActiveTexture(GL_TEXTURE0 + activeTexture);
@@ -179,6 +200,7 @@ public final class Texture {
   }
 
   public void delete() {
+    this.deleted = true;
     glDeleteTextures(this.id);
   }
 

@@ -61,7 +61,7 @@ public class Gpu {
   private Shader<SimpleShaderOptions> vramShader;
   private SimpleShaderOptions vramShaderOptions;
   private Shader.UniformBuffer transforms2Uniform;
-  private final FloatBuffer transforms2Buffer = BufferUtils.createFloatBuffer(4 * 4 + 3);
+  private final FloatBuffer transforms2Buffer = BufferUtils.createFloatBuffer(4 * 4 + 4);
   private final Matrix4f identity = new Matrix4f();
 
   private Texture displayTexture;
@@ -211,9 +211,8 @@ public class Gpu {
       this.displayChanged = false;
     }
 
-    this.displayTexture.data(0, 0, this.displayTexture.width, this.displayTexture.height, this.getDisplayBuffer().getData());
-
     if(RenderEngine.legacyMode == 1) {
+      this.displayTexture.data(0, 0, this.displayTexture.width, this.displayTexture.height, this.getDisplayBuffer().getData());
       this.drawDisplay();
     } else if(RenderEngine.legacyMode == 2) {
       this.drawVram();
